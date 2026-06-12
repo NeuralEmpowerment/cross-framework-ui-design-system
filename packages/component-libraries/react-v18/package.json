@@ -23,7 +23,7 @@
     "storybook:test": "pnpm --filter @design-system/design-tokens tokens:build && start-server-and-test \"storybook dev --config-dir .storybook --port 6006 --quiet --ci --no-open\" http://127.0.0.1:6006 \"test-storybook --config-dir .storybook\""
   },
   "peerDependencies": {
-    "react": "^18.2.0",
+    "react": "^19.2.7",
     "react-dom": "^18.2.0"
   },
   "dependencies": {
@@ -39,14 +39,14 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
-    "@types/react": "^18.3.11",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^18.3.2",
     "@vitejs/plugin-react": "^4.3.2",
     "cross-env": "7.0.3",
     "detect-package-manager": "3.0.1",
     "jsdom": "^24.1.0",
     "prettier": "^3.6.2",
-    "react": "^18.2.0",
+    "react": "^19.2.7",
     "react-dom": "^18.2.0",
     "rimraf": "^5.0.7",
     "start-server-and-test": "2.0.2",
