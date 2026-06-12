@@ -42,7 +42,7 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.2",
     "@vitejs/plugin-react": "^4.3.2",
-    "cross-env": "7.0.3",
+    "cross-env": "10.1.0",
     "detect-package-manager": "3.0.1",
     "jsdom": "^24.1.0",
     "prettier": "^3.6.2",
