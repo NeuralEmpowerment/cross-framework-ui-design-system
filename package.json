@@ -22,7 +22,7 @@
     "tui": "node --experimental-strip-types --disable-warning=ExperimentalWarning packages/dev-tools/dashboard/src/cli.ts",
     "design-system:verify": "node scripts/verify-design-system.mjs",
     "version:bump": "node scripts/bump-version.mjs",
-    "publish:packages": "pnpm -r publish --access public --provenance --no-git-checks"
+    "publish:packages": "node scripts/publish-packages.mjs"
   },
   "engines": {
     "node": ">=18.18.0",

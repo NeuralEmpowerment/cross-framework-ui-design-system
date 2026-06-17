@@ -48,17 +48,17 @@ The packaging and pipeline are wired in-repo (ADR-0009). Done:
 - [x] **Normalized `private` / `publishConfig`.** The 6 publishable packages are
       `"private": false` with `"publishConfig": { "access": "public", "provenance":
       true }` and a `repository` field; apps, dashboard, and generator are
-      `"private": true`, so `pnpm -r publish` skips them.
+      `"private": true`, and the publish script skips anything not publishable.
 - [x] **Release workflow + version tooling**: `.github/workflows/release.yml`,
       `scripts/bump-version.mjs`, and the `version:bump` / `publish:packages` scripts.
 
 Manual prerequisites (cannot be done from the repo; blockers for the first live
 publish):
 
-- [ ] **Create the `syntropic137` npm org** so the `@syntropic137` scope is
-      publishable.
-- [ ] **Add an `NPM_TOKEN` repo secret** (an npm automation token), or configure an
-      npm trusted publisher (OIDC) per package.
+- [x] **npm org `syntropic137`** exists, so the `@syntropic137` scope is publishable.
+- [ ] **Configure npm trusted publishing (OIDC)** for each of the 6 packages, so no
+      token is stored. See "Trusted publishing (OIDC) setup" below, including the
+      one-time first-publish bootstrap.
 - [ ] **Protect the `release` branch**: require `ci.yml` green and a review before
       merge. This is what turns the `main` -> `release` PR into a real gate.
 - [ ] (Optional) confirm `dist/*.d.ts` ship for the react cells (ADR-0004 emission)
@@ -73,13 +73,42 @@ The model is **release branch + gate + publish-on-merge** (ADR-0009):
 2. **Open the release PR** `main` -> `release`. `ci.yml` runs the full `pnpm qa` gate
    on it; this PR is the release gate.
 3. **Merge.** `.github/workflows/release.yml` re-runs `pnpm qa`, then
-   `pnpm publish:packages` publishes the 6 public packages to npm with provenance,
-   tags `vX.Y.Z`, and cuts a GitHub Release. A guard skips publish if the tag already
-   exists, so re-pushing `release` is idempotent.
+   `pnpm publish:packages` publishes the 6 public packages, tags `vX.Y.Z`, and cuts a
+   GitHub Release. A guard skips publish if the tag already exists, so re-pushing
+   `release` is idempotent.
 
-Publishing always runs from CI with **npm provenance** (OIDC `id-token`),
-`ignore-scripts=true`, and `--frozen-lockfile` — the supply-chain hardening from
-[ADR-0008](./adrs/ADR-0008-npm-distribution.md) carries straight into release.
+`publish:packages` (`scripts/publish-packages.mjs`) packs each package with
+`pnpm pack` (which rewrites `workspace:^` deps to real version ranges) and publishes
+the tarball with `npm publish --provenance`. Plain `npm publish` could not do the
+workspace rewrite, and pnpm 9 cannot do the OIDC handshake, so the split uses each
+tool for what it does well. Publishing runs from CI with `ignore-scripts=true` and
+`--frozen-lockfile` (the ADR-0008 supply-chain hardening).
+
+## Trusted publishing (OIDC) setup
+
+The release uses npm **trusted publishing**: instead of storing an `NPM_TOKEN`, npm
+trusts a specific GitHub repo + workflow. At publish time the workflow presents its
+short-lived GitHub OIDC id-token (`permissions: id-token: write` in `release.yml`),
+npm verifies it against the configured trusted publisher, and issues ephemeral
+credentials. Nothing long-lived to leak, and provenance is attached automatically.
+
+Configure once per package on npmjs.com: the package's **Settings -> Trusted
+Publishers -> GitHub Actions**, with repository
+`syntropic137/cross-framework-ui-design-system` and workflow file
+`.github/workflows/release.yml`.
+
+**First-publish bootstrap.** A trusted publisher is attached to a package that already
+exists, but these 6 packages are not on npm yet. Do a one-time first publish to create
+each, then add the trusted publisher for all future automated releases:
+
+```bash
+npm login                 # interactive, or use a short-lived automation token once
+pnpm build
+node scripts/publish-packages.mjs   # packs + npm publish using your npm login
+```
+
+After that, add the trusted publisher to each package; every later release then goes
+through the workflow with zero tokens.
 
 ## Consuming the published packages
 

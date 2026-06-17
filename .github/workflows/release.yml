@@ -52,12 +52,15 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Publish to npm with provenance
+      # OIDC trusted publishing: no NPM_TOKEN secret. npm exchanges this workflow's
+      # OIDC id-token (permissions.id-token: write, above) for short-lived publish
+      # credentials, provided a trusted publisher is configured on npmjs.com for each
+      # package and points at this repo + workflow. Provenance is attached automatically.
+      - name: Publish to npm via OIDC trusted publishing
         if: steps.tag.outputs.exists == 'false'
-        run: pnpm publish:packages
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
+        run: |
+          npm install -g npm@latest   # npm >= 11.5.1 required for OIDC trusted publishing
+          pnpm publish:packages
       - name: Tag and create GitHub Release
         if: steps.tag.outputs.exists == 'false'
         env:

@@ -27,9 +27,13 @@ A **release-branch model with publish-on-merge**:
   `release` un-gated.
 - **Publish happens on merge.** `.github/workflows/release.yml` triggers on push to
   `release`: it re-runs `pnpm qa` (belt-and-suspenders on the merged result), then
-  `pnpm publish:packages` publishes the public packages to npm with **provenance**
-  (OIDC `id-token`), tags `vX.Y.Z`, and creates a GitHub Release. A guard skips
-  publish if the tag already exists, so re-pushing `release` is idempotent.
+  `pnpm publish:packages` publishes the public packages with **provenance**, tags
+  `vX.Y.Z`, and creates a GitHub Release. A guard skips publish if the tag already
+  exists, so re-pushing `release` is idempotent. The publish step packs each package
+  with `pnpm pack` (rewriting `workspace:^` to real versions) and runs `npm publish`,
+  which performs the npm **OIDC trusted-publishing** handshake (no `NPM_TOKEN`): plain
+  `npm publish` cannot rewrite workspace deps and pnpm 9 cannot do the OIDC exchange,
+  so each tool does the part it does well.
 - **Versioning is lockstep** (ADR-0008). `pnpm version:bump <semver>`
   (`scripts/bump-version.mjs`, zero dependencies) sets the version on every package
   with `"private": false` plus the root, and seeds a CHANGELOG entry. The publish
@@ -37,7 +41,7 @@ A **release-branch model with publish-on-merge**:
 - **What publishes** is decided by the `private` flag, not the workflow: the 6
   publishable packages are `"private": false` with
   `"publishConfig": { "access": "public", "provenance": true }`; the apps, dashboard,
-  and generator are `"private": true` and `pnpm -r publish` skips them.
+  and generator are `"private": true`, which the publish script skips.
 
 ## Consequences
 
@@ -46,10 +50,12 @@ A **release-branch model with publish-on-merge**:
   and every release is reproducible from the tagged commit with provenance.
 - **Positive:** lockstep + the zero-dep bump script keep versioning simple and free
   of new tooling, matching the repo's zero-dependency ethos.
-- **Cost / manual prerequisites (not codeable here):** the npm org `syntropic137`
-  must exist; an `NPM_TOKEN` automation token must be added as a repo secret (or npm
-  trusted-publisher OIDC configured); and branch protection on `release` must require
-  `ci.yml` + review. Until those exist, the workflow will run but the publish step
-  fails on auth. These are tracked in `docs/distribution.md`.
+- **Cost / manual prerequisites (not codeable here):** npm **trusted publishing
+  (OIDC)** must be configured per package on npmjs.com (pointing at this repo +
+  workflow; no token stored), and branch protection on `release` must require
+  `ci.yml` + review. Because a trusted publisher attaches to an existing package, the
+  first publish of each new package needs a one-time bootstrap (publish once with
+  `npm login`). Until these exist the workflow runs but the publish step fails on
+  auth. All tracked in `docs/distribution.md`.
 - **Cost:** re-running `pnpm qa` in the publish job duplicates the PR's gate and adds
   minutes; accepted because publishing is irreversible.
