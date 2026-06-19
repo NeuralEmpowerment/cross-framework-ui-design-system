@@ -33,13 +33,27 @@ export default defineConfig({
       {
         extends: true,
         plugins: [storybookTest({ configDir: resolve(dir, ".storybook") })],
+        // Pre-bundle every story's deps at startup so Vite's optimizer never
+        // discovers a new dep mid-run. On a cold cache (fresh CI) a mid-run
+        // re-optimize logs "optimized dependencies changed. reloading" and the
+        // reload drops the suite context ("failed to find the current suite"),
+        // failing story files nondeterministically. Scanning the stories/preview
+        // up front (entries) plus force-including the React/clsx runtime makes the
+        // optimize happen once, before any test runs.
+        optimizeDeps: {
+          entries: ["src/**/*.stories.@(ts|tsx)", ".storybook/preview.tsx"],
+          include: [
+            "react",
+            "react-dom",
+            "react-dom/client",
+            "react/jsx-runtime",
+            "react/jsx-dev-runtime",
+            "clsx"
+          ]
+        },
         test: {
           name: "storybook",
-          // Browser-mode flake guard. On a cold Vite dep cache (fresh CI), the
-          // optimizer can re-bundle mid-run and trigger "Vite unexpectedly reloaded
-          // a test" -> "failed to find the current suite", failing a few story files
-          // nondeterministically. Serializing files and retrying lets the run settle
-          // once deps are optimized. (Passes first try locally with a warm cache.)
+          // Belt-and-suspenders against any residual cold-cache reload flake.
           fileParallelism: false,
           retry: 2,
           browser: {
